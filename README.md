@@ -1,11 +1,8 @@
----
-
-
 # GEWDiff: Geometric Enhanced Wavelet-based Diffusion Model for Hyperspectral Image Super-resolution
 
 This is the official PyTorch implementation of:
 
-> **GEWDiff: Geometric Enhanced Wavelet-based Diffusion Model for Hyperspectral Image Super-resolution**
+**GEWDiff: Geometric Enhanced Wavelet-based Diffusion Model for Hyperspectral Image Super-resolution**
 
 GEWDiff integrates wavelet-domain frequency decomposition and geometric-aware attention into a diffusion model for high-quality hyperspectral image super-resolution (HSI-SR).
 
@@ -35,7 +32,7 @@ pip install -r requirements.txt
 ## Overview
 Our GEWDiff framework combines wavelet decomposition with diffusion models:
 
-![GEWDiff Architecture](GEWDiff/assets/framework.png)
+![GEWDiff Architecture](asserts/framework.png)
 *Figure 1: Overall architecture of GEWDiff.*
 
 ---
@@ -151,7 +148,7 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision=fp16 GEWDiff/t
 ## 📊 Results
 Qualitative comparison with other methods:
 
-![Comparison Results](GEWDiff/assets/results_comparison.jpg)
+![Comparison Results](asserts/results_comparison.jpg)
 *Figure 2: Super-resolution results.*
 
 ---
