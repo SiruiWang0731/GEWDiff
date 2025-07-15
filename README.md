@@ -35,7 +35,7 @@ pip install -r requirements.txt
 ## Overview
 Our GEWDiff framework combines wavelet decomposition with diffusion models:
 
-![GEWDiff Architecture](./assets/framework.png)
+![GEWDiff Architecture](assets/framework.png)
 *Figure 1: Overall architecture of GEWDiff.*
 
 ---
@@ -151,7 +151,7 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision=fp16 GEWDiff/t
 ## 📊 Results
 Qualitative comparison with other methods:
 
-![Comparison Results](./assets/results_comparison.jpg)
+![Comparison Results](assets/results_comparison.jpg)
 *Figure 2: Super-resolution results.*
 
 ---
