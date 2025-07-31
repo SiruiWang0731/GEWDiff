@@ -135,9 +135,8 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         file = self.files[idx]
-        img_o=tifffile.imread(os.path.join(self.data_dir_lq, file)).astype(np.float32)
-        print("img_o",img_o.max(), img_o.min())
-        #img=img_o/ 3000
+        img_o=tifffile.imread(os.path.join(self.data_dir_lq, file)).astype(np.float32).transpose(2, 0, 1)
+        print("img_o",img_o.max(), img_o.min())        #img=img_o/ 3000
         img_gt_o= resize_image_to_quarter(img_o)
         img_gt=img_gt_o/ 10000
         img=img_o/ 10000
@@ -255,7 +254,7 @@ class TrainingConfig:
         self.mixed_precision = 'no'  # 'fp16' for automatic mixed precision
         self.output_dir = '/workspace/diff_sr/result/'  # output directory
         self.out_size = 256 # the generated image resolution
-        self.bands = 219
+        self.bands = 40
         self.overwrite_output_dir = True  # overwrite the old model when re-running the notebook
         self.num_timesteps = num_timesteps
         self.seed = 0
@@ -367,7 +366,7 @@ if __name__ == "__main__":
         error_map = torch.mean((predicted - ground_truth) ** 2, dim=-1)   
         return error_map
     
-    test_dataset = Dataset('/workspace/diff_sr/data/test_enmap',config, is_train=False)
+    test_dataset = Dataset('/workspace/diff_sr/data/test_planet',config, is_train=False)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config.eval_batch_size, shuffle=False)
     #image_lr = preprocess(image_lr1).permute(1, 0,  2).unsqueeze(0)
     for batch_idx, batch in enumerate(test_loader):
@@ -431,9 +430,9 @@ if __name__ == "__main__":
             print(f"[Batch {batch_idx} - Image {i}] Eval:", result)
 
         # Visualization and saving
-            image_recon_show = img_hsi[:, :, [40, 30, 20]]
-            image_GT_show = img_gt_i_1[[40, 30, 20], :, :].permute(1, 2, 0)
-            image_LR_show = img_lr_i_1[[40, 30, 20], :, :].permute(1, 2, 0)
+            image_recon_show = img_hsi[:, :, [25, 15, 5]]
+            image_GT_show = img_gt_i_1[[25, 15, 5], :, :].permute(1, 2, 0)
+            image_LR_show = img_lr_i_1[[25, 15, 5], :, :].permute(1, 2, 0)
 
             fig = plt.figure(figsize=(50, 50))
 
@@ -468,8 +467,8 @@ if __name__ == "__main__":
             plt.title('Spectrum Comparison')
 
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            save_path = f'/workspace/diff_sr/result/resultdiff_rwa_pca_batch{batch_idx}_img{i}.png'
+            save_path = f'/workspace/diff_sr/result/resultdiff_rwa_pca_batch{batch_idx}_img{i}_p.png'
             plt.savefig(save_path, format='png')
             plt.close()
 
-            np.save(f'/workspace/diff_sr/result/resultdiff_pred_batch{batch_idx}_img{i}.npy', x_pred)
+            np.save(f'/workspace/diff_sr/result/resultdiff_pred_batch{batch_idx}_img{i}_p.npy', x_pred)

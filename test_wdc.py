@@ -85,19 +85,19 @@ class Dataset(torch.utils.data.Dataset):
         self.pca_lr = PCA(n_components=config.compack_bands)
         self.is_train = is_train
         self.l = 0
-        # 仅在test阶段计算 PCA
+        # PCA is calculated only during the test phase
         if self.is_train:
             self.fit_pca()
 
     def fit_pca(self):
-        """ 在所有训练数据上分别计算高分辨率和低分辨率的 PCA """
+        """ Compute high-resolution and low-resolution PCA separately on all training data """
         #all_patches_hr = []
         all_patches_lr = []
         
         for file in self.files:
             img_gt_o = tifffile.imread(os.path.join(self.data_dir_gt, file))*10000
-            img = resize_image_to_quarter(img_gt_o)   # 低分辨率图像
-            img_gt = img_gt_o / 10000  # 高分辨率图像
+            img = resize_image_to_quarter(img_gt_o)   
+            img_gt = img_gt_o / 10000  
 
             x = self.config.out_size  # 256
             x1 = int(self.config.out_size / 4)  # 64
@@ -126,16 +126,12 @@ class Dataset(torch.utils.data.Dataset):
             
             all_patches_lr.append(img_lr_hf)
 
-        # 组合所有样本并训练 PCA
-        #all_patches_hr = np.vstack(all_patches_hr)
+        # Combine all samples and train PCA
         all_patches_lr = np.vstack(all_patches_lr)
-
-        #self.pca_hr.fit(all_patches_hr)
         self.pca_lr.fit(all_patches_lr)
 
-        print("PCA 计算完成")
-        #print("高分辨率 PCA 解释方差比率:", self.pca_hr.explained_variance_ratio_)
-        print("低分辨率 PCA 解释方差比率:", self.pca_lr.explained_variance_ratio_)
+        print("PCA calculation completed")
+        print("Low-resolution PCA explained variance ratio:", self.pca_lr.explained_variance_ratio_)
 
     def __getitem__(self, idx):
         file = self.files[idx]

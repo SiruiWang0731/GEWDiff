@@ -1,3 +1,11 @@
+# ---------------------------------------------------------
+# Portions of this code are adapted from:
+# https://github.com/lucidrains/denoising-diffusion-pytorch/blob/main/denoising_diffusion_pytorch/elucidated_diffusion.py
+# Author: Phil Wang (lucidrains)
+# Repository: lucidrains/denoising-diffusion-pytorch
+# License: MIT
+# If used in academic work, please consider citing the repository.
+# ---------------------------------------------------------
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -21,16 +29,13 @@ from copy import deepcopy
 class UNet2DModelWithBN(UNet2DModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        
-        # 修改每个 DownBlock 和 UpBlock 的卷积层，加入 BatchNorm
+        # Modify the convolutional layer of each DownBlock and UpBlock and add BatchNorm
         for module in self.down_blocks:
             for layer in module.resnets:
                 layer.conv2 = nn.Sequential(
-                    layer.conv2,  # 原始卷积层
-                    nn.BatchNorm2d(layer.conv2.out_channels)  # 添加 BatchNorm2d
+                    layer.conv2,  
+                    nn.BatchNorm2d(layer.conv2.out_channels) 
                 )
-        
         for module in self.up_blocks:
             for layer in module.resnets:
                 layer.conv2 = nn.Sequential(
@@ -73,41 +78,39 @@ class UNet2DModelWithBN(UNet2DModel):
         return parent_module, names[-1]
     
 class SpectralFidelityEnhancer(nn.Module):
-    """光谱保真增强模块"""
+    """Spectral Fidelity Enhancement Module"""
     def __init__(self, in_channels=200):
         super().__init__()
-        # 光谱注意力机制
+        # Spectral Attention Mechanism
         self.mid_channels = in_channels // 8
         if in_channels < 8:
-            self.mid_channels = 1  # 确保 mid_channels 至少为 1
+            self.mid_channels = 1 # Make sure mid_channels is at least 1
         self.spectral_att = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(in_channels, self.mid_channels, 1),
             nn.GELU(),
             nn.Conv2d(self.mid_channels, in_channels, 1),
-            #nn.Sigmoid(),  # 限制输出范围
         )
         
 
     def forward(self, x):
-        # 通道注意力增强
+        # Channel Attention Enhancement
         att = self.spectral_att(x)
-        # 让 att 在 [0, 1] 范围内
+        # Let att be in the range [0, 1]
         att = torch.clamp(att, min=0.0, max=1.0)*2+0.2
         x_att = x * att
-        #  # 让 att 在 [0, 1.5] 范围内
+        # # Let att be in the range [0, 1.5]
         x_att = torch.clamp(x_att, min=0.0, max=1.5)
-        return x + 1 * x_att  # 残差连接
+        return x + 1 * x_att  # Residual connection
     
   
 class UNet2DWithSpectralFidelity(UNet2DModel):
-    """集成光谱保真增强的改进UNet2D模型"""
+    """Improved UNet2D model with integrated spectral fidelity enhancement"""
     def __init__(self, *args, 
                  norm_type='instance',
                  **kwargs):
         super().__init__(*args, **kwargs)
         self.norm_type = norm_type
-        # 替换归一化层
         self._replace_norm_layers()
         self._replace_layers_with_spectral_enhancer()
                     
@@ -136,31 +139,28 @@ class UNet2DWithSpectralFidelity(UNet2DModel):
                 setattr(parent_module, child_name, new_norm)
     def _replace_layers_with_spectral_enhancer(self):
         """
-        在每个 Conv2d 之后插入 SpectralFidelityEnhancer
+        Insert SpectralFidelityEnhancer after each Conv2d
         """
         for name, module in self.named_modules():
             if isinstance(module, nn.Conv2d):
-                in_channels = module.out_channels  # 需要匹配 SpectralFidelityEnhancer 输入通道数
-            
-                # 插入 SpectralFidelityEnhancer
+                in_channels = module.out_channels  # Need to match the number of SpectralFidelityEnhancer input channels
+                # insert SpectralFidelityEnhancer
                 new_module = nn.Sequential(
                 module,
-                SpectralFidelityEnhancer(in_channels=in_channels)  # 直接用 Enhancer
+                SpectralFidelityEnhancer(in_channels=in_channels)  
                 )
-            
-                # 替换 UNet 里的层
+                # Replace the layers in UNet
                 parent_module, child_name = self._get_parent_module_and_name(name)
                 setattr(parent_module, child_name, new_module)
 
    
 class UNet3DWithSpectralFidelity(UNet3DModel):
-    """集成光谱保真增强的改进UNet2D模型"""
+    """Improved UNet2D model with integrated spectral fidelity enhancement"""
     def __init__(self, *args, 
                  norm_type='instance',
                  **kwargs):
         super().__init__(*args, **kwargs)
         self.norm_type = norm_type
-        # 替换归一化层
         self._replace_norm_layers()
         self._replace_layers_with_spectral_enhancer()
                     
@@ -189,19 +189,16 @@ class UNet3DWithSpectralFidelity(UNet3DModel):
                 setattr(parent_module, child_name, new_norm)
     def _replace_layers_with_spectral_enhancer(self):
         """
-        在每个 Conv2d 之后插入 SpectralFidelityEnhancer
+        Insert SpectralFidelityEnhancer after each Conv2d
         """
         for name, module in self.named_modules():
             if isinstance(module, nn.Conv2d):
-                in_channels = module.out_channels  # 需要匹配 SpectralFidelityEnhancer 输入通道数
+                in_channels = module.out_channels  # Need to match the number of SpectralFidelityEnhancer input channels
             
-                # 插入 SpectralFidelityEnhancer
                 new_module = nn.Sequential(
                 module,
-                SpectralFidelityEnhancer(in_channels=in_channels)  # 直接用 Enhancer
+                SpectralFidelityEnhancer(in_channels=in_channels)
                 )
-            
-                # 替换 UNet 里的层
                 parent_module, child_name = self._get_parent_module_and_name(name)
                 setattr(parent_module, child_name, new_module)
 
@@ -209,16 +206,16 @@ class UNet3DWithSpectralFidelity(UNet3DModel):
 class SpectralFeatureExtractorPretrained(nn.Module):
     def __init__(self, in_channels=242):
         super(SpectralFeatureExtractorPretrained, self).__init__()
-        # 加载预训练的VGG19模型
+        # Loading the pre-trained VGG19 model
         vgg = models.vgg19(weights=models.VGG19_Weights.IMAGENET1K_V1)  
         #vgg = models.vgg19(pretrained=True).features
-        #self.feature_layers = nn.Sequential(*list(vgg[:16]))  # 使用VGG的前16层
+        #self.feature_layers = nn.Sequential(*list(vgg[:16]))  # Use the first 16 layers of VGG
         self.feature_layers = nn.Sequential(*list(vgg.features.children())[:16]) 
-        # 由于高光谱图像通道数不匹配，我们可以添加卷积层来调整输入通道数
+        # Since the number of channels of the hyperspectral image does not match, we can add a convolutional layer to adjust the number of input channels.
         self.conv_adjust = nn.Conv2d(in_channels, 3, kernel_size=1, stride=1)
 
     def forward(self, gen_img, real_img):
-        gen_img = self.conv_adjust(gen_img.to(torch.float32))  # 将高光谱图像转换为3通道（可以通过学习调整）
+        gen_img = self.conv_adjust(gen_img.to(torch.float32))  # Convert hyperspectral images to 3 channels (can be adjusted through learning)
         real_img = self.conv_adjust(real_img.to(torch.float32))
         loss = nn.MSELoss()
         fetures_gen = self.feature_layers(gen_img)
@@ -226,30 +223,29 @@ class SpectralFeatureExtractorPretrained(nn.Module):
         return loss(fetures_gen, fetures_real)
     
 def gradient_loss(x_generated, x_real):
-    """ 计算梯度一致性损失 """
-    c = x_generated.shape[1]  # 获取通道数
-    device = x_generated.device  # 适配设备
-    dtype = x_generated.dtype  # 适配数据类型
+    """ Compute gradient consistency loss """
+    c = x_generated.shape[1]  
+    device = x_generated.device 
+    dtype = x_generated.dtype  
 
-    # 创建 Sobel 过滤器 (1, 1, 3, 3)
+    # Create a Sobel filter (1, 1, 3, 3)
     sobel_x = torch.tensor(
         [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=dtype, device=device
     ).view(1, 1, 3, 3)
 
-    sobel_y = sobel_x.transpose(2, 3)  # y 方向 Sobel
+    sobel_y = sobel_x.transpose(2, 3)  # y direction Sobel
 
-    # 复制到多通道，使其适用于 `groups=c`
-    sobel_x = sobel_x.repeat(c, 1, 1, 1)  # 变成 (c, 1, 3, 3)
-    sobel_y = sobel_y.repeat(c, 1, 1, 1)  # 变成 (c, 1, 3, 3)
+    # Copy to multichannel to make it work with `groups=c`
+    sobel_x = sobel_x.repeat(c, 1, 1, 1)  
+    sobel_y = sobel_y.repeat(c, 1, 1, 1)  
 
-    # 计算 Sobel 梯度
     grad_x_gen = F.conv2d(x_generated, sobel_x, padding=1, groups=c)
     grad_y_gen = F.conv2d(x_generated, sobel_y, padding=1, groups=c)
     grad_x_real = F.conv2d(x_real, sobel_x, padding=1, groups=c)
     grad_y_real = F.conv2d(x_real, sobel_y, padding=1, groups=c)
-    # 计算 L1 损失
+    # Calculating L1 loss
     loss = F.l1_loss(grad_x_gen, grad_x_real) + F.l1_loss(grad_y_gen, grad_y_real) 
-    loss = loss / 2  # 除以2，使其更平滑
+    loss = loss / 2  # Divide by 2 to make it smoother
     return loss
 
 def edge_aware_noise_schedule(noise_map, edge_map, sigmas, strength=0.1):

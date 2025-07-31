@@ -103,7 +103,7 @@ class UNet3DModel(ModelMixin, ConfigMixin):
         act_fn: str = "silu",
         norm_num_groups: int = 32,
         attn_norm_num_groups: Optional[int] = None,
-        norm_eps: float = 1e-6,  # 增加eps防止除零
+        norm_eps: float = 1e-6,  # Increase eps to prevent division by zero
         resnet_time_scale_shift: str = "default",
         add_attention: bool = True,
         class_embed_type: Optional[str] = None,
@@ -119,21 +119,20 @@ class UNet3DModel(ModelMixin, ConfigMixin):
         self.sample_size = sample_size
         time_embed_dim = block_out_channels[0] * 4
 
-        # 输入验证
         if len(down_block_types) != len(up_block_types):
-            raise ValueError("down_block_types和up_block_types数量不匹配")
+            raise ValueError("The number of down_block_types and up_block_types does not match")
         if len(block_out_channels) != len(down_block_types):
-            raise ValueError("block_out_channels和down_block_types数量不匹配")
+            raise ValueError("The number of block_out_channels and down_block_types does not match")
 
-        # 输入层改为Conv3d并添加安全初始化
+        # Change the input layer to Conv3d and add safe initialization
         self.conv_in = nn.Conv2d(in_channels, block_out_channels[0], kernel_size=3, padding=1)
-# 使用Xavier/Glorot初始化替代Kaiming
+        # Use Xavier/Glorot initialization instead of Kaiming
         nn.init.xavier_uniform_(self.conv_in.weight, gain=nn.init.calculate_gain('relu'))
         nn.init.zeros_(self.conv_in.bias)
         if self.conv_in.bias is not None:
             nn.init.constant_(self.conv_in.bias, 0)
         num_attention_heads = [int(num_attention_heads)] * len(down_block_types)
-        # 时间嵌入增强稳定性
+        # Temporal embedding enhances stability
         if time_embedding_type == "fourier":
             self.time_proj = GaussianFourierProjection(embedding_size=block_out_channels[0], scale=16)
             timestep_input_dim = 2 * block_out_channels[0]
@@ -148,9 +147,9 @@ class UNet3DModel(ModelMixin, ConfigMixin):
             nn.Linear(timestep_input_dim, time_embed_dim),
             nn.SiLU(),
             nn.Linear(time_embed_dim, time_embed_dim),
-            nn.LayerNorm(time_embed_dim, eps=norm_eps) ) # 添加LayerNorm稳定数值
+            nn.LayerNorm(time_embed_dim, eps=norm_eps) ) # Add LayerNorm stable value
 
-        # 类别嵌入修复
+        # Category embedding repair
         if class_embed_type == "identity":
             self.class_embedding = nn.Identity()
         elif class_embed_type is not None:
@@ -158,7 +157,7 @@ class UNet3DModel(ModelMixin, ConfigMixin):
         else:
             self.class_embedding = None
 
-        # 下采样块
+        # Downsampling block
         self.down_blocks = nn.ModuleList()
         output_channel = block_out_channels[0]
         for i, down_block_type in enumerate(down_block_types):
@@ -182,7 +181,6 @@ class UNet3DModel(ModelMixin, ConfigMixin):
             )
             self.down_blocks.append(down_block)
 
-        # 中间块
         self.mid_block = UNetMidBlock3DCrossAttn(
             in_channels=block_out_channels[-1],
             temb_channels=time_embed_dim,
@@ -195,7 +193,6 @@ class UNet3DModel(ModelMixin, ConfigMixin):
             dual_cross_attention=False,
         )
 
-        # 上采样块
         self.up_blocks = nn.ModuleList()
         reversed_block_out_channels = list(reversed(block_out_channels))
         output_channel = reversed_block_out_channels[0]
@@ -222,7 +219,7 @@ class UNet3DModel(ModelMixin, ConfigMixin):
             )
             self.up_blocks.append(up_block)
 
-        # 输出层增强稳定性
+        # Output layer enhances stability
         num_groups_out = norm_num_groups if norm_num_groups is not None else min(block_out_channels[0] // 4, 32)
         self.conv_norm_out = nn.GroupNorm(
             num_channels=block_out_channels[0],
@@ -236,7 +233,7 @@ class UNet3DModel(ModelMixin, ConfigMixin):
             kernel_size=3, 
             padding=1
         )
-        nn.init.zeros_(self.conv_out.weight)  # 初始化为零输出
+        nn.init.zeros_(self.conv_out.weight)  # Initialize to zero output
         nn.init.zeros_(self.conv_out.bias)
 
     def forward(
@@ -246,15 +243,15 @@ class UNet3DModel(ModelMixin, ConfigMixin):
         class_labels: Optional[torch.Tensor] = None,
         return_dict: bool = True,
     ) -> Union[UNet3DOutput, Tuple]:
-        # 输入检查
+        # Input Checking
         if torch.isnan(sample).any():
-            raise ValueError("输入样本包含NaN值")
+            raise ValueError("The input sample contains NaN values")
 
-        # 中心化输入
+        # Centralized Input
         if self.config.center_input_sample:
             sample = 2 * sample - 1.0
 
-        # 时间处理
+        # Time processing
         if not torch.is_tensor(timestep):
             timestep = torch.tensor([timestep], dtype=torch.long, device=sample.device)
         elif torch.is_tensor(timestep) and len(timestep.shape) == 0:
@@ -264,21 +261,21 @@ class UNet3DModel(ModelMixin, ConfigMixin):
         t_emb = self.time_proj(timestep)
         t_emb = t_emb.to(dtype=sample.dtype)
         
-        # 时间嵌入
+        #Time Embedding
         emb = self.time_embedding(t_emb)
         if torch.isnan(emb).any():
-            raise ValueError("时间嵌入包含NaN值")
+            raise ValueError("Time embedding contains NaN values")
 
-        # 类别条件
+        # Category Conditions
         if self.class_embedding is not None and class_labels is not None:
             class_emb = self.class_embedding(class_labels)
             emb = emb + class_emb
 
-        # 前向传播
+        # Forward propagation
         skip_sample = sample
         sample = self.conv_in(sample)
         
-        # 下采样
+        # downsample_block
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
             if hasattr(downsample_block, "skip_conv"):
@@ -289,15 +286,15 @@ class UNet3DModel(ModelMixin, ConfigMixin):
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
             
             if torch.isnan(sample).any():
-                raise ValueError("下采样过程中出现NaN值")
+                raise ValueError("NaN values appear during downsampling")
             down_block_res_samples += res_samples
 
-        # 中间块
+        # mid_block
         sample = self.mid_block(sample, emb)
         if torch.isnan(sample).any():
-            raise ValueError("中间块输出包含NaN值")
+            raise ValueError("Intermediate block output contains NaN values")
 
-        # 上采样
+        # up_blocks
         for upsample_block in self.up_blocks:
             res_samples = down_block_res_samples[-len(upsample_block.resnets):]
             down_block_res_samples = down_block_res_samples[:-len(upsample_block.resnets)]
@@ -308,9 +305,9 @@ class UNet3DModel(ModelMixin, ConfigMixin):
                 sample = upsample_block(sample, res_samples, emb)
             
             if torch.isnan(sample).any():
-                raise ValueError("上采样过程中出现NaN值")
+                raise ValueError("NaN values appear during upsampling")
 
-        # 输出处理
+        # Output Processing
         sample = self.conv_norm_out(sample)
         sample = self.conv_act(sample)
         sample = self.conv_out(sample)

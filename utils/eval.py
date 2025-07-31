@@ -77,11 +77,11 @@ def generalized_gaussian_ratio_inverse(k):
         safe_value = max((3-4*k)/(4*c1), 1e-6)
         p1 = (c2**2 + 4*c3*math.log(safe_value))
         if p1 < 0:
-            print("警告: p1 为负值，设置为 0")
+            print("Warning: p1 is negative, set to 0")
             p1 = 1e-6
         return (1/(2*c3)) * (c2 - math.sqrt(p1))
     else:
-        print ("警告: GGRF 逆函数无法计算 %f" %(k))
+        print ("Warning: GGRF inverse function cannot be calculated %f" %(k))
         return numpy.nan
 
 def estimate_aggd_params(x):
@@ -115,15 +115,15 @@ def compute_features(img_norm):
 
 def normalize_image(img, sigma=7/6):
     """
-    归一化图像，使用高斯滤波来估算均值和标准差。
-    可以尝试不同的 sigma 值来查看影响。
+    Normalize the image and apply a Gaussian filter to estimate the mean and standard deviation.
+    You can try different values of sigma to see the impact.
     """
     mu = gaussian_filter(img, sigma, mode='nearest')
     mu_sq = mu * mu
     sigma = numpy.sqrt(numpy.abs(gaussian_filter(img * img, sigma, mode='nearest') - mu_sq))
     
-    # 增加一个小值以避免除以零
-    img_norm = (img - mu) / (sigma + 1e-6)  # 加入1e-6避免除零
+    # Add a small value to avoid division by zero
+    img_norm = (img - mu) / (sigma + 1e-6)  
     return img_norm
 
 
@@ -158,14 +158,14 @@ def NIQE(img):
     model_cov = numpy.nan_to_num(model_cov, nan=0.0)
 
     if numpy.isnan(model_cov).any() or numpy.isnan(features_cov).any():
-        raise ValueError("协方差矩阵中存在 NaN，可能导致 SVD 失败")
+        raise ValueError("NaNs in the covariance matrix may cause SVD to fail")
     if numpy.isinf(model_cov).any() or numpy.isinf(features_cov).any():
-        raise ValueError("协方差矩阵中存在 Inf，可能导致 SVD 失败")
+        raise ValueError("infs in the covariance matrix may cause SVD to fail")
 
     try:
         pseudoinv_of_avg_cov  = numpy.linalg.pinv((model_cov + features_cov)/2)
     except numpy.linalg.LinAlgError:
-        print("计算协方差矩阵的伪逆时出现错误")
+        print("Error when computing pseudo-inverse of covariance matrix")
         features_cov = numpy.cov(features.T) + 1e-6 * numpy.eye(features_cov.shape[0])
         pseudoinv_of_avg_cov  = numpy.linalg.pinv((model_cov + features_cov)/2)
 
@@ -177,16 +177,13 @@ def NIQE(img):
 epsilon = 1e-8
 def extract_rgb_from_hyperspectral(hyperspectral_img):
     """
-    从高光谱图像中提取指定的波段作为RGB图像
-    :param hyperspectral_img: 高光谱图像，形状为 (H, W, C)，H为高度，W为宽度，C为波段数
-    :return: RGB图像，形状为 (H, W, 3)
+    Extracts the specified band from a hyperspectral image as an RGB image.
+    :param hyperspectral_img: Hyperspectral image, shape (H, W, C), where H is height, W is width, and C is the number of bands.
+    :return: RGB image, shape (H, W, 3)
     """
-    # 指定需要提取的波段索引（从0开始）
-    band_indices = [38, 23, 5]  # 对应高光谱图像的第38, 23, 5波段
-    
-    # 提取这三波段
+    #Specify the band index to be extracted (starting from 0)
+    band_indices = [38, 23, 5]  
     rgb_image = hyperspectral_img[:, :, band_indices]
-    
     return rgb_image
 
 def is_image_file(filename):
@@ -195,12 +192,10 @@ def is_image_file(filename):
 
 def calculate_niqe(image):
     """
-    计算NIQE评分
-    :param image: 输入图像，形状为(H, W, C)
-    :return: NIQE得分
+    Calculate NIQE score
+    :param image: Input image, shape (H, W, C)
+    :return: NIQE score
     """
-    # 检查输入图像的形状
-   
     niqe_score = np.zeros((image.shape[2],))
     for i in range(image.shape[2]):
         niqe_score[i] = NIQE(image[:, :, i])
@@ -298,28 +293,26 @@ def calculate_fid(real_images, generated_images, device='cpu', min_size=128):
 from scipy.ndimage import laplace
 
 def laplacian_variance_numpy(image):
-    """ 使用 numpy 和 scipy 计算拉普拉斯方差（Laplacian Variance） """
-    #gray = np.mean(image, axis=-1)  # 转换为灰度图（适用于 RGB 或 HSI）
-    gray = image  # 如果图像已经是灰度图，则不需要转换
-    laplacian = laplace(gray)  # 计算拉普拉斯变换
-    return np.var(laplacian)  # 计算方差
+    """ use numpy and scipy to calculate Laplacian Variance """
+    gray = image  
+    laplacian = laplace(gray)  # Calculate the Laplace transform
+    return np.var(laplacian)  # Calculate variance
 from scipy.ndimage import sobel
 
 def energy_of_gradient_numpy(image):
-    """ 使用 numpy 计算能量梯度（EOG） """
-    #gray = np.mean(image, axis=-1)  # 转换为灰度图
-    gray = image  # 如果图像已经是灰度图，则不需要转换
-    grad_x = sobel(gray, axis=1)  # 计算 x 方向梯度
-    grad_y = sobel(gray, axis=0)  # 计算 y 方向梯度
-    eog = np.sum(grad_x**2 + grad_y**2)  # 计算梯度能量
+    """ Computing Energy of Gradient (EOG) using numpy"""
+    gray = image  
+    grad_x = sobel(gray, axis=1)  # Calculate the x-direction gradient
+    grad_y = sobel(gray, axis=0)  # Calculate the y-direction gradient
+    eog = np.sum(grad_x**2 + grad_y**2) 
     return eog
 def hsi_laplacian_variance_numpy(hsi_image):
-    """ 计算高光谱图像的拉普拉斯方差（所有波段求均值） """
+    """ Calculate the Laplace variance of a hyperspectral image (averaged across all bands) """
     lv_scores = [laplacian_variance_numpy(hsi_image[..., i]) for i in range(hsi_image.shape[-1])]
     return np.mean(lv_scores)
 
 def hsi_energy_of_gradient_numpy(hsi_image):
-    """ 计算高光谱图像的能量梯度（所有波段求均值） """
+    """ Calculate the energy gradient of hyperspectral images (average across all bands) """
     eog_scores = [energy_of_gradient_numpy(hsi_image[..., i]) for i in range(hsi_image.shape[-1])]
     return np.mean(eog_scores)
 
@@ -328,7 +321,7 @@ def compare_ergas(x_true, x_pred, ratio):
     Calculate ERGAS, ERGAS offers a global indication of the quality of fused image.The ideal value is 0.
     :param x_true:
     :param x_pred:
-    :param ratio: 上采样系数
+    :param ratio: Upsampling factor
     :return:
     """
     x_true, x_pred = img_2d_mat(x_true=x_true, x_pred=x_pred)
@@ -345,9 +338,9 @@ def compare_ergas(x_true, x_pred, ratio):
 
 def compare_sam(x_true, x_pred):
     """
-    :param x_true: 高光谱图像：格式：(H, W, C)
-    :param x_pred: 高光谱图像：格式：(H, W, C)
-    :return: 计算原始高光谱数据与重构高光谱数据的光谱角相似度
+    :param x_true: Hyperspectral image: Format: (H, W, C)
+    :param x_pred: Hyperspectral image: Format: (H, W, C)
+    :return: Calculates the spectral angle similarity between the original hyperspectral data and the reconstructed hyperspectral data
     """
     num = 0
     sum_sam = 0
@@ -367,7 +360,7 @@ def compare_sam(x_true, x_pred):
 def compare_corr(x_true, x_pred):
     """
     Calculate the cross correlation between x_pred and x_true.
-    求对应波段的相关系数，然后取均值
+    Calculate the correlation coefficient of the corresponding band and then take the mean
     CC is a spatial measure.
     """
     x_true, x_pred = img_2d_mat(x_true=x_true, x_pred=x_pred)
@@ -382,7 +375,7 @@ def compare_corr(x_true, x_pred):
 
 def img_2d_mat(x_true, x_pred):
     """
-    # 将三维的多光谱图像转为2位矩阵
+    # Convert a 3D multispectral image into a 2-bit matrix
     :param x_true: (H, W, C)
     :param x_pred: (H, W, C)
     :return: a matrix which shape is (C, H * W)
@@ -559,13 +552,13 @@ def quality_assessment(x_true, x_pred, data_range, ratio, multi_dimension=False,
     rgb_true = extract_rgb_from_hyperspectral(x_true)
     rgb_pred = extract_rgb_from_hyperspectral(x_pred)
 
-    # 计算NIQE
+    # NIQE
     #niqe_true = calculate_niqe(rgb_true)
     #niqe_pred = calculate_niqe(rgb_pred)
     
-    # 计算FID
+    # FID
     fid = calculate_fid(rgb_true, rgb_pred)
-    # 计算拉普拉斯方差
+    # laplacian_variance_
     lv_true = hsi_laplacian_variance_numpy(x_true)
     lv_pred = hsi_laplacian_variance_numpy(x_pred)
     
@@ -586,21 +579,6 @@ def quality_assessment(x_true, x_pred, data_range, ratio, multi_dimension=False,
               }
     return result
 
-# from scipy import io as sio
-# im_out = np.array(sio.loadmat('/home/zhwzhong/PycharmProject/HyperSR/SOAT/HyperSR/SRindices/Chikuse_EDSRViDeCNN_Blocks=9_Feats=256_Loss_H_Real_1_1_X2X2_N5new_BS32_Epo60_epoch_60_Fri_Sep_20_21:38:44_2019.mat')['output'])
-# im_gt = np.array(sio.loadmat('/home/zhwzhong/PycharmProject/HyperSR/SOAT/HyperSR/SRindices/Chikusei_test.mat')['gt'])
-#
-# sum_rmse, sum_sam, sum_psnr, sum_ssim, sum_ergas = [], [], [], [], []
-# for i in range(im_gt.shape[0]):
-#     print(im_out[i].shape)
-#     score = quality_assessment(x_pred=im_out[i], x_true=im_gt[i], data_range=1, ratio=4, multi_dimension=False, block_size=8)
-#     sum_rmse.append(score['RMSE'])
-#     sum_psnr.append(score['MPSNR'])
-#     sum_ssim.append(score['MSSIM'])
-#     sum_sam.append(score['SAM'])
-#     sum_ergas.append(score['ERGAS'])
-#
-# print(np.mean(sum_rmse), np.mean(sum_psnr), np.mean(sum_ssim), np.mean(sum_sam))
 
 
 import numpy as np
@@ -629,130 +607,6 @@ def sum_dict(a, b):
         temp[key] = sum([d.get(key, 0) for d in (a, b)])
     return temp
 
-class TestsetFromFolder(data.Dataset):
-    def __init__(self, dataset_dir):
-        super(TestsetFromFolder, self).__init__()
-        self.image_filenames = [join(dataset_dir, x) for x in listdir(dataset_dir) if is_image_file(x)]
-        # 把文件先都读取到CPU
-        self.img = []
-        print("kai shi du qu shu ju ce shi shu ju le")
-        for i in range(len(self.image_filenames)):
-            print(i)
-            mat = scio.loadmat(self.image_filenames[i], verify_compressed_data_integrity=False)
-            self.img.append(mat)
-        print("gong xi ni !!! shu ju du qu cheng gong le!!!")
-
-
-    def __getitem__(self, index):
-        # mat = scio.loadmat(self.image_filenames[index])
-        mat = self.img[index]
-        input = mat['LR'].astype(np.float32).transpose(2, 0, 1)
-        label = mat['HR'].astype(np.float32).transpose(2, 0, 1)
-
-        input = input[:,:32,:32]
-        label = label[:,:128,:128]
-
-        img_HR = torch.from_numpy(label)
-        img_LR = torch.from_numpy(input)
-        # 这里是上采样了四倍，具体情况改变这个数值。
-        # img_LR_1 = img_LR.reshape(1,3,32,32)
-        # print(img_LR.shape)
-        img_LR_1 = img_LR.reshape(1,102,32,32) # 除了PaviaC数据集，别的都是512，512
-        
-        img_SR = torch.nn.functional.interpolate(img_LR_1, scale_factor=4, mode='bicubic')
-
-        return {'HR': img_HR, 'SR': img_SR[0], 'LR': img_LR}
-
-    def __len__(self):
-        return len(self.image_filenames)
-
-if __name__ == "__main__":
-    # pred_list = np.load('./SR3_3_result/Pav_pred_list.npy')
-    pred_list = np.load('./Chi4_timetest_list.npy')
-    print(len(pred_list))
-
-    result_list = []
-
-    test_num = 64
-    channels_3 = 42
-
-    for j in range(test_num):
-        indices = [j + i*test_num for i in range(channels_3)]
-        print(indices)
-        data_list = []
-        # for i in indices:
-        #     # 直接进行拼接，波段顺序连续
-        #     data_list.append(pred_list[i])
-
-        # 每一个里面，存放着间隔的波段,每次循环放一个位置的波段，一共进行三次，复原全部。
-        for i in indices:
-            # print(pred_list[i][:,:,0][:,:, np.newaxis].shape)
-            data_list.append(pred_list[i][:,:,0][:,:, np.newaxis])
-        for i in indices:
-            data_list.append(pred_list[i][:,:,1][:,:, np.newaxis])
-        for i in indices:
-            data_list.append(pred_list[i][:,:,2][:,:, np.newaxis])
-
-        # Chikusei 数据集，126通道，把最后俩当作真实的，重复拼接一下。
-        data_list.append(pred_list[indices[-1]][:,:,2][:,:, np.newaxis])
-        data_list.append(pred_list[indices[-1]][:,:,2][:,:, np.newaxis])
-
-        result = np.concatenate(data_list, axis=-1)
-        print(result.shape)
-        # result = np.delete(result, -2, axis=-1)
-        # result = np.delete(result, -2, axis=-1)
-        # print(result.shape)
-        result_list.append(result)
-    print(len(result_list))
-
-
-    # 真实数据起初是测试的时候对应的生成，现在更换为真实的样本直接读取。
-    # gt_list = np.load('Chi_gt_list.npy')
-    # print(len(gt_list))
-    # gr_list = []
-    # for j in range(4):
-    #     indices = [j + i*4 for i in range(42)]
-    #     print(indices)
-    #     data_list = []
-    #     for i in indices:
-    #         data_list.append(gt_list[i])
-    #     result = np.concatenate(data_list, axis=-1)
-    #     # result = np.delete(result, -1, axis=-1)
-    #     # result = np.delete(result, -1, axis=-1)
-    #     gr_list.append(result)
-    # print(len(gr_list))
-
-    val_set = TestsetFromFolder('../Harvard_4_test/')
-    # val_set = TestsetFromFolder('../test/Cave/4/4')
-    # val_set = TestsetFromFolder('../test/Foster/4/')
-    # val_set = TestsetFromFolder('../test/Chikusei/4/')
-    # val_set = TestsetFromFolder('../test/PaviaC/4/')
-    #val_set = HSTestData(image_dir= '../Chikusei_mat/128test/', n_scale = 4, ch3=False, num_ch=0)
-    print(len(val_set))
-    gr_list = []
-    for mat in val_set:
-        gr_list.append(mat['HR'].numpy())
-
-
-    for idx in range(test_num):
-        y = result_list[idx]
-        gt = gr_list[idx].transpose(1,2,0)
-
-        # y = y[:128,:128,:]
-        # gt = gt[:128,:128,:]
-        y = color_correction(gt, y, num_channels=102)
-
-        print(y.shape, gt.shape)
-        if idx == 0:
-            indices = quality_assessment(gt, y, data_range=1., ratio=4)
-        else:
-            indices = sum_dict(indices, quality_assessment(gt, y, data_range=1., ratio=4))
-        # indices = quality_assessment(gt, y, data_range=1., ratio=4)
-        print(indices)
-    # 平均一下。
-    for index in indices:
-        indices[index] = indices[index] / (idx+1)
-    print("最终的结果平均指标为 {}".format(indices))
     
 
     
