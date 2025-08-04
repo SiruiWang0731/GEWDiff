@@ -148,7 +148,7 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision=fp16 GEWDiff/t
 ## 📊 Results
 Qualitative comparison with other methods:
 
-![Comparison Results](asserts/results_comparison.png) 
+
 *Figure 2: Super-resolution results.*
 
 ---
